@@ -16,7 +16,7 @@ app.use(cors({
 }));
 
 app.use(express.json());
-app.use(express.urlencoded({ extended: true }));s
+app.use(express.urlencoded({ extended: true }));
 
 // ── REQUEST LOGGER (shows every API call in terminal) ───────
 app.use((req, res, next) => {
