@@ -2,16 +2,15 @@ const { Pool } = require('pg');
 
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
-  ssl: {
-    rejectUnauthorized: false
-  }
+  ssl: { rejectUnauthorized: false }
 });
 
-pool.connect((err) => {
+pool.connect((err, client, release) => {
   if (err) {
-    console.error("Database connection failed:", err.message);
+    console.error('❌ Database connection failed:', err.message);
   } else {
-    console.log("✅ Connected to Supabase PostgreSQL");
+    console.log('✅ Connected to Supabase PostgreSQL!');
+    release();
   }
 });
 
