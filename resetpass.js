@@ -1,7 +1,7 @@
 const bcrypt = require('bcryptjs');
 const { Pool } = require('pg');
 const pool = new Pool({
-  host: 'https://educore-api.onrender.com/api',
+  host: 'localhost',
   database: 'educore_db',
   user: 'postgres',
   password: '@MnQelbdy'
