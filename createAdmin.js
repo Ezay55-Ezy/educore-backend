@@ -3,8 +3,7 @@ const { Pool } = require('pg');
 
 // Database connection using your specific password
 const pool = new Pool({
-  host: 'localhost',
-  port: 5432,
+  host: 'https://educore-api.onrender.com/api',
   database: 'educore_db',
   user: 'postgres',
   password: '@MnQelbdy' // Your confirmed PostgreSQL password

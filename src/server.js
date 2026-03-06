@@ -6,11 +6,17 @@ const app = express();
 
 // ── MIDDLEWARE ──────────────────────────────────────────────
 app.use(cors({
-  origin: ['http://localhost:3000', 'http://localhost:4200', 'http://127.0.0.1:5500'],
+  origin: [
+    'http://localhost:3000',
+    'http://localhost:4200',
+    'http://127.0.0.1:5500',
+    'https://educore-school.netlify.app'
+  ],
   credentials: true
 }));
+
 app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+app.use(express.urlencoded({ extended: true }));s
 
 // ── REQUEST LOGGER (shows every API call in terminal) ───────
 app.use((req, res, next) => {
@@ -56,7 +62,7 @@ app.listen(PORT, () => {
   console.log('');
   console.log('╔══════════════════════════════════════╗');
   console.log('║   🎓 EduCore Backend API             ║');
-  console.log(`║   Running on http://localhost:${PORT}   ║`);
+  console.log(`║   Running on :https://educore-api.onrender.com  ║`);
   console.log('╚══════════════════════════════════════╝');
   console.log('');
   console.log('📡 Available endpoints:');

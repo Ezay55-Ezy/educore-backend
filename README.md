@@ -60,7 +60,7 @@ You should see:
 ✅ Database connected successfully
 ╔══════════════════════════════════════╗
 ║   🎓 EduCore Backend API             ║
-║   Running on http://localhost:5000   ║
+║   Running on https://educore-api.onrender.com/api   ║
 ╚══════════════════════════════════════╝
 ```
 
@@ -72,7 +72,7 @@ Open your browser or use Postman to test:
 
 ### Test Login:
 ```
-POST http://localhost:5000/api/auth/login
+POST https://educore-api.onrender.com/api/auth/login
 Body (JSON):
 {
   "admission_no": "ADM-2024-001",
@@ -97,7 +97,7 @@ Expected response:
 
 ### Test Get Student Profile (use the token from login):
 ```
-GET http://localhost:5000/api/students/1
+GET https://educore-api.onrender.com/api/students/1
 Headers:
   Authorization: Bearer <your_token_here>
 ```
@@ -157,7 +157,7 @@ educore-backend/
 
 ## Next Steps After Backend is Running
 
-1. ✅ Backend API running on localhost:5000
+1. ✅ Backend API running on https://educore-api.onrender.com/api
 2. ⬜ Build Student Login page (HTML/Angular)
 3. ⬜ Build Student Dashboard (shows real data from API)
 4. ⬜ Add Teacher module
