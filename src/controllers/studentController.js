@@ -185,37 +185,78 @@ const createStudent = async (req, res) => {
 
 // ── PUT /api/students/:id — Update student ──────────────────
 const updateStudent = async (req, res) => {
+  const client = await pool.connect();
   try {
     const { id } = req.params;
     const {
       first_name, last_name, date_of_birth, gender,
-      blood_group, address, class_id, medical_notes
+      blood_group, address, class_id, medical_notes,
+      status, kcpe_score,
+      parent_name, parent_relationship, parent_phone, parent_email
     } = req.body;
 
-    const result = await pool.query(
+    // Convert empty strings to null to avoid integer conversion errors
+    const safeClassId   = class_id   && class_id   !== '' ? parseInt(class_id)   : null;
+    const safeKcpe      = kcpe_score && kcpe_score !== '' ? parseInt(kcpe_score) : null;
+    const safeDob       = date_of_birth && date_of_birth !== '' ? date_of_birth : null;
+
+    await client.query('BEGIN');
+
+    const result = await client.query(
       `UPDATE students SET
-         first_name = COALESCE($1, first_name),
-         last_name  = COALESCE($2, last_name),
+         first_name    = COALESCE($1, first_name),
+         last_name     = COALESCE($2, last_name),
          date_of_birth = COALESCE($3, date_of_birth),
-         gender     = COALESCE($4, gender),
-         blood_group= COALESCE($5, blood_group),
-         address    = COALESCE($6, address),
-         class_id   = COALESCE($7, class_id),
+         gender        = COALESCE($4, gender),
+         blood_group   = COALESCE($5, blood_group),
+         address       = COALESCE($6, address),
+         class_id      = COALESCE($7, class_id),
          medical_notes = COALESCE($8, medical_notes),
-         updated_at = NOW()
-       WHERE id = $9 RETURNING *`,
-      [first_name, last_name, date_of_birth, gender, blood_group, address, class_id, medical_notes, id]
+         status        = COALESCE($9, status),
+         kcpe_score    = COALESCE($10, kcpe_score)
+       WHERE id = $11 RETURNING *`,
+      [first_name, last_name, safeDob, gender, blood_group,
+       address, safeClassId, medical_notes, status, safeKcpe, id]
     );
 
     if (result.rows.length === 0) {
+      await client.query('ROLLBACK');
       return res.status(404).json({ success: false, message: 'Student not found.' });
     }
 
-    res.json({ success: true, message: 'Student updated.', student: result.rows[0] });
+    // Update parent info if provided
+    if (parent_name || parent_phone) {
+      const existingParent = await client.query(
+        'SELECT id FROM parents WHERE student_id = $1', [id]
+      );
+      if (existingParent.rows.length > 0) {
+        await client.query(
+          `UPDATE parents SET
+             full_name    = COALESCE($1, full_name),
+             relationship = COALESCE($2, relationship),
+             phone_primary = COALESCE($3, phone_primary),
+             email        = COALESCE($4, email)
+           WHERE student_id = $5`,
+          [parent_name, parent_relationship, parent_phone, parent_email, id]
+        );
+      } else {
+        await client.query(
+          `INSERT INTO parents (student_id, full_name, relationship, phone_primary, email)
+           VALUES ($1, $2, $3, $4, $5)`,
+          [id, parent_name, parent_relationship || 'Guardian', parent_phone, parent_email]
+        );
+      }
+    }
+
+    await client.query('COMMIT');
+    res.json({ success: true, message: 'Student updated successfully.', student: result.rows[0] });
 
   } catch (error) {
+    await client.query('ROLLBACK');
     console.error('Update student error:', error);
     res.status(500).json({ success: false, message: 'Server error.' });
+  } finally {
+    client.release();
   }
 };
 
@@ -346,7 +387,83 @@ const getGrades = async (req, res) => {
   }
 };
 
+// ── GET /api/students/teachers — List all teachers ──────────
+const getTeachers = async (req, res) => {
+  try {
+    const result = await pool.query(
+      `SELECT id, admission_no, email, role, created_at
+       FROM users WHERE role = 'teacher' ORDER BY created_at DESC`
+    );
+    res.json({ success: true, teachers: result.rows });
+  } catch (error) {
+    console.error('Get teachers error:', error);
+    res.status(500).json({ success: false, message: 'Server error.' });
+  }
+};
+
+// ── POST /api/students/register-teacher ─────────────────────
+const registerTeacher = async (req, res) => {
+  try {
+    const { name, email, password, admission_no, subject, phone } = req.body;
+
+    if (!name || !email || !password) {
+      return res.status(400).json({ success: false, message: 'Name, email and password are required.' });
+    }
+
+    const bcrypt = require('bcryptjs');
+    const hash   = await bcrypt.hash(password, 10);
+    const staffNo = admission_no || `TCH-${Date.now().toString().slice(-4)}`;
+
+    const result = await pool.query(
+      `INSERT INTO users (admission_no, email, password_hash, role)
+       VALUES ($1, $2, $3, 'teacher')
+       ON CONFLICT (email) DO NOTHING
+       RETURNING id, admission_no, email, role`,
+      [staffNo, email, hash]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(400).json({ success: false, message: 'Email already exists.' });
+    }
+
+    res.status(201).json({
+      success: true,
+      message: `Teacher ${name} registered successfully.`,
+      teacher: result.rows[0]
+    });
+
+  } catch (error) {
+    console.error('Register teacher error:', error);
+    res.status(500).json({ success: false, message: 'Server error.' });
+  }
+};
+
+// ── DELETE /api/students/teachers/:id ───────────────────────
+const deleteTeacher = async (req, res) => {
+  try {
+    const { id } = req.params;
+    await pool.query(`DELETE FROM users WHERE id = $1 AND role = 'teacher'`, [id]);
+    res.json({ success: true, message: 'Teacher removed.' });
+  } catch (error) {
+    console.error('Delete teacher error:', error);
+    res.status(500).json({ success: false, message: 'Server error.' });
+  }
+};
+
+// ── DELETE /api/students/:id ─────────────────────────────────
+const deleteStudent = async (req, res) => {
+  try {
+    const { id } = req.params;
+    await pool.query('DELETE FROM students WHERE id = $1', [id]);
+    res.json({ success: true, message: 'Student deleted.' });
+  } catch (error) {
+    console.error('Delete student error:', error);
+    res.status(500).json({ success: false, message: 'Server error.' });
+  }
+};
+
 module.exports = {
   getAllStudents, getStudentById, createStudent,
-  updateStudent, getAttendance, getFees, getGrades
+  updateStudent, getAttendance, getFees, getGrades,
+  getTeachers, registerTeacher, deleteTeacher, deleteStudent
 };
